@@ -17,11 +17,13 @@ public class GymLog {
     private double weight;
     private int reps;
     private LocalDateTime date;
+    private int userId;
 
-    public GymLog(String exercise, double weight, int reps) {
+    public GymLog(String exercise, double weight, int reps, int userId) {
         this.exercise = exercise;
         this.weight = weight;
         this.reps = reps;
+        this.userId = userId;
         this.date = LocalDateTime.now();
     }
 
@@ -79,11 +81,19 @@ public class GymLog {
     public boolean equals(Object o) {
         if (!(o instanceof GymLog)) return false;
         GymLog gymLog = (GymLog) o;
-        return id == gymLog.id && Double.compare(weight, gymLog.weight) == 0 && reps == gymLog.reps && Objects.equals(exercise, gymLog.exercise) && Objects.equals(date, gymLog.date);
+        return id == gymLog.id && Double.compare(weight, gymLog.weight) == 0 && reps == gymLog.reps && userId == gymLog.userId && Objects.equals(exercise, gymLog.exercise) && Objects.equals(date, gymLog.date);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, exercise, weight, reps, date);
+        return Objects.hash(id, exercise, weight, reps, date, userId);
+    }
+
+    public int getUserId() {
+        return userId;
+    }
+
+    public void setUserId(int userId) {
+        this.userId = userId;
     }
 }
