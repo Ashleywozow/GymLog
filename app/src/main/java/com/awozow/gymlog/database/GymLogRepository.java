@@ -3,6 +3,8 @@ package com.awozow.gymlog.database;
 import android.app.Application;
 import android.util.Log;
 
+import androidx.lifecycle.LiveData;
+
 import com.awozow.gymlog.database.entities.GymLog;
 import com.awozow.gymlog.MainActivity;
 import com.awozow.gymlog.database.entities.User;
@@ -75,18 +77,27 @@ public class GymLogRepository {
         });
     }
 
-    public User getUserByUserName(String username) {
-        Future<User> future = GymLogDatabase.databaseWriteExecutor.submit(
-                new Callable<User>() {
+    public LiveData<User> getUserByUserName(String username) {
+       return userDAO.getUserByUserName(username);
+    }
+
+    public LiveData<User> getUserByUserId(int userId) {
+        return userDAO.getUserByUserId(userId);
+    }
+
+    public ArrayList<GymLog> getAllLogsByUserId(int loginUserId) {
+        Future<ArrayList<GymLog>> future = GymLogDatabase.databaseWriteExecutor.submit(
+                new Callable<ArrayList<GymLog>>() {
                     @Override
-                    public User call() throws Exception {
-                        return userDAO.getUserByUserName(username);
+                    public ArrayList<GymLog> call() throws Exception {
+                        return (ArrayList<GymLog>) gymLogDAO.getRecordsByUserId(loginUserId);
                     }
-                });
-        try {
-            future.get();
-        } catch (ExecutionException | InterruptedException e) {
-            Log.i(MainActivity.TAG, "Problem when getting user by username");
+                }
+        );
+        try{
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            Log.i(MainActivity.TAG, "Problem when getting all GymLogs in the repository");
         }
         return null;
     }

@@ -3,6 +3,7 @@ package com.awozow.gymlog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
@@ -14,6 +15,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LiveData;
 
 import com.awozow.gymlog.database.GymLogRepository;
 import com.awozow.gymlog.database.entities.GymLog;
@@ -21,18 +23,22 @@ import com.awozow.gymlog.database.entities.User;
 import com.awozow.gymlog.databinding.ActivityMainBinding;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
     public static final String TAG = "DAC_GYMLOG";
     private static final String MAIN_ACTIVITY_USER_ID = "com.awozow.gymlog.MAIN_ACTIVITY_USER_ID";
+    static final String SHARED_PREFERENCE_USERID_KEY = "com.awozow.gymlog.SHARED_PREFERENCE_USERID_KEY";
+    static final String SHARED_PREFERENCE_USERID_VALUE = "com.awozow.gymlog.SHARED_PREFERENCE_USERID_VALUE";
+    static final String SAVED_INSTANCE_STATE_USERID_KEY = "com.awozow.gymlog.SAVED_INSTANCE_STATE_USERID_KEY";
+    private static final int LOGGED_OUT = -1;
     private ActivityMainBinding binding;
     private GymLogRepository repository;
     String mExercise = "";
     double mWeight = 0.0;
     int mReps = 0;
 
-    //TODO: Add login info
     private int loginUserID = -1;
     private User user;
 
@@ -42,16 +48,12 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        loginUser();
-        invalidateOptionsMenu();
-
+        repository = GymLogRepository.getRepository(getApplication());
+        loginUser(savedInstanceState);
         if (loginUserID == -1){
             Intent intent = LoginActivity.loginIntentFactory(getApplicationContext());
             startActivity(intent);
         }
-
-        repository = GymLogRepository.getRepository(getApplication());
-
         binding.logDisplayTextView.setMovementMethod(new ScrollingMovementMethod());
         updateDisplay();
 
@@ -72,10 +74,67 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void loginUser() {
-        //TODO: Make login method functional
-        user = new User("Ash", "password");
-        loginUserID = getIntent().getIntExtra(MAIN_ACTIVITY_USER_ID,-1);
+    private void loginUser(Bundle savedInstanceState) {
+
+        // check shared preference for logged in user
+        SharedPreferences sharedPreferences = getSharedPreferences(
+                SHARED_PREFERENCE_USERID_KEY,
+                Context.MODE_PRIVATE
+        );
+
+        if (sharedPreferences.contains(SHARED_PREFERENCE_USERID_KEY)) {
+            loginUserID = sharedPreferences.getInt(
+                    SHARED_PREFERENCE_USERID_VALUE,
+                    LOGGED_OUT
+            );
+        }
+
+        if (loginUserID == LOGGED_OUT &&
+                savedInstanceState != null &&
+                savedInstanceState.containsKey(SAVED_INSTANCE_STATE_USERID_KEY)) {
+
+            loginUserID = savedInstanceState.getInt(
+                    SAVED_INSTANCE_STATE_USERID_KEY,
+                    LOGGED_OUT
+            );
+        }
+
+        if (loginUserID == LOGGED_OUT) {
+            loginUserID = getIntent().getIntExtra(
+                    MAIN_ACTIVITY_USER_ID,
+                    LOGGED_OUT
+            );
+        }
+
+        if (loginUserID == LOGGED_OUT) {
+            return;
+        }
+
+        LiveData<User> userObserver =
+                repository.getUserByUserId(loginUserID);
+
+        userObserver.observe(this, user -> {
+            this.user = user;
+            if (this.user != null) {
+                invalidateOptionsMenu();
+            } else {
+                //TODO Could be apart of problem
+                logout();
+            }
+        });
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt(SAVED_INSTANCE_STATE_USERID_KEY, loginUserID);
+
+        SharedPreferences sharedPreferences =
+                getSharedPreferences(SHARED_PREFERENCE_USERID_KEY, Context.MODE_PRIVATE);
+
+        SharedPreferences.Editor sharedPrefEditor = sharedPreferences.edit();
+        sharedPrefEditor.putInt(MainActivity.SHARED_PREFERENCE_USERID_KEY, loginUserID);
+        sharedPrefEditor.apply();
     }
 
     @Override
@@ -89,6 +148,9 @@ public class MainActivity extends AppCompatActivity {
     public boolean onPrepareOptionsMenu(Menu menu) {
         MenuItem item = menu.findItem(R.id.logoutMenuItem);
         item.setVisible(true);
+        if (user == null){
+            return false;
+        }
         item.setTitle(user.getUsername());
         item.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
             @Override
@@ -121,7 +183,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void logout() {
-        //TODO: Finish logout work
+        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences(SHARED_PREFERENCE_USERID_KEY, Context.MODE_PRIVATE);
+        SharedPreferences.Editor sharedPrefEditor = sharedPreferences.edit();
+        sharedPrefEditor.putInt(SHARED_PREFERENCE_USERID_KEY, LOGGED_OUT);
+        sharedPrefEditor.apply();
+        getIntent().putExtra(MAIN_ACTIVITY_USER_ID, LOGGED_OUT);
         startActivity(LoginActivity.loginIntentFactory(getApplicationContext()));
     }
 
@@ -140,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateDisplay(){
-        ArrayList<GymLog> allLogs = repository.getAllLogs();
+        ArrayList<GymLog> allLogs = repository.getAllLogsByUserId(loginUserID);
         if (allLogs.isEmpty()){
             binding.logDisplayTextView.setText(R.string.nothing_to_show_time_to_hit_the_gym);
         }
