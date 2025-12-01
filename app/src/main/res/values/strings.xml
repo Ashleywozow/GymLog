@@ -12,4 +12,6 @@
     <string name="username">Username</string>
     <string name="password">Password</string>
     <string name="login">Login!</string>
+    <string name="preference_file_key">daclinkPrefernceFileNameGymLog</string>
+    <string name="preference_userId_key">PreferenceUserIdKeyGymLog</string>
 </resources>

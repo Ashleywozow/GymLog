@@ -30,7 +30,6 @@ public class MainActivity extends AppCompatActivity {
     public static final String TAG = "DAC_GYMLOG";
     private static final String MAIN_ACTIVITY_USER_ID = "com.awozow.gymlog.MAIN_ACTIVITY_USER_ID";
     static final String SHARED_PREFERENCE_USERID_KEY = "com.awozow.gymlog.SHARED_PREFERENCE_USERID_KEY";
-    static final String SHARED_PREFERENCE_USERID_VALUE = "com.awozow.gymlog.SHARED_PREFERENCE_USERID_VALUE";
     static final String SAVED_INSTANCE_STATE_USERID_KEY = "com.awozow.gymlog.SAVED_INSTANCE_STATE_USERID_KEY";
     private static final int LOGGED_OUT = -1;
     private ActivityMainBinding binding;
@@ -50,10 +49,12 @@ public class MainActivity extends AppCompatActivity {
 
         repository = GymLogRepository.getRepository(getApplication());
         loginUser(savedInstanceState);
+        //User is not logged in go to login screen
         if (loginUserID == -1){
             Intent intent = LoginActivity.loginIntentFactory(getApplicationContext());
             startActivity(intent);
         }
+        updatedSharedPreference();
         binding.logDisplayTextView.setMovementMethod(new ScrollingMovementMethod());
         updateDisplay();
 
@@ -78,16 +79,11 @@ public class MainActivity extends AppCompatActivity {
 
         // check shared preference for logged in user
         SharedPreferences sharedPreferences = getSharedPreferences(
-                SHARED_PREFERENCE_USERID_KEY,
+                getString(R.string.preference_file_key),
                 Context.MODE_PRIVATE
         );
+        loginUserID = sharedPreferences.getInt(getString(R.string.preference_userId_key), LOGGED_OUT);
 
-        if (sharedPreferences.contains(SHARED_PREFERENCE_USERID_KEY)) {
-            loginUserID = sharedPreferences.getInt(
-                    SHARED_PREFERENCE_USERID_VALUE,
-                    LOGGED_OUT
-            );
-        }
 
         if (loginUserID == LOGGED_OUT &&
                 savedInstanceState != null &&
@@ -117,9 +113,6 @@ public class MainActivity extends AppCompatActivity {
             this.user = user;
             if (this.user != null) {
                 invalidateOptionsMenu();
-            } else {
-                //TODO Could be apart of problem
-                logout();
             }
         });
     }
@@ -128,13 +121,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt(SAVED_INSTANCE_STATE_USERID_KEY, loginUserID);
-
-        SharedPreferences sharedPreferences =
-                getSharedPreferences(SHARED_PREFERENCE_USERID_KEY, Context.MODE_PRIVATE);
-
-        SharedPreferences.Editor sharedPrefEditor = sharedPreferences.edit();
-        sharedPrefEditor.putInt(MainActivity.SHARED_PREFERENCE_USERID_KEY, loginUserID);
-        sharedPrefEditor.apply();
+        updatedSharedPreference();
     }
 
     @Override
@@ -183,12 +170,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void logout() {
-        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences(SHARED_PREFERENCE_USERID_KEY, Context.MODE_PRIVATE);
-        SharedPreferences.Editor sharedPrefEditor = sharedPreferences.edit();
-        sharedPrefEditor.putInt(SHARED_PREFERENCE_USERID_KEY, LOGGED_OUT);
-        sharedPrefEditor.apply();
+        loginUserID = LOGGED_OUT;
+        updatedSharedPreference();
         getIntent().putExtra(MAIN_ACTIVITY_USER_ID, LOGGED_OUT);
         startActivity(LoginActivity.loginIntentFactory(getApplicationContext()));
+    }
+
+    private void updatedSharedPreference(){
+        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE);
+        SharedPreferences.Editor sharedPrefEditor = sharedPreferences.edit();
+        sharedPrefEditor.putInt(getString(R.string.preference_userId_key), loginUserID);
+        sharedPrefEditor.apply();
     }
 
     static Intent mainActivityIntentFactory(Context context, int userID){
